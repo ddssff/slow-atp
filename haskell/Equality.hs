@@ -12,7 +12,6 @@ import PropositionalLogic hiding (nnf)
 import FirstOrderLogic hiding (replace)
 import Types
 import Failing
-import DP
 
 mk_eq s t = Atom (R "=" [s,t])
 

@@ -11,8 +11,6 @@ import Debug.Trace
 import PropositionalLogic hiding (nnf)
 import Types
 import Failing
--- import Parser
-import DP
 
 meson :: Formula FOL -> S.Set Int
 meson fm =
