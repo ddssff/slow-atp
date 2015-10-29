@@ -23,7 +23,7 @@ puremeson :: Formula FOL -> Int
 puremeson fm = deepen (\n -> mexpand rules [] FF return (M.empty,n,0) >> return n) 0
  where
   cls = simpcnf (specialize (pnf fm))
-  rules = itlist ((++) . contrapositives) (flatten cls) []
+  rules = foldr ((++) . contrapositives) [] (flatten cls)
 
 mexpand rules ancestors g cont (env,n,k)
   | n < 0 = failure "Too deep"
@@ -36,7 +36,7 @@ mexpand rules ancestors g cont (env,n,k)
      secondCheck rule = do
        let (Prolog asm c,k') = renamerule k rule
        ul <- unify_literals env (g,c)
-       b <- itlist (mexpand rules (g:ancestors)) asm cont (ul,n-(length asm),k')
+       b <- foldr (mexpand rules (g:ancestors)) cont asm (ul,n-(length asm),k')
        return b
 
 contrapositives :: [Formula FOL] -> [PrologRule]
@@ -216,7 +216,7 @@ tsubst sfn tm@(Var x) = maybe tm id (M.lookup x sfn)
 tsubst sfn (Fn f args) = Fn f (map (tsubst sfn) args)
 
 generalize :: Formula FOL -> Formula FOL
-generalize fm = itlist Forall (fv fm) fm
+generalize fm = foldr Forall fm (fv fm)
 
 -- Section 3.3
 

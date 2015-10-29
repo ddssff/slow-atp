@@ -34,9 +34,3 @@ tryfind f (h:t) = tryM (f h) (tryfind f t) --either (const (tryfind f t)) return
 
 flatten :: S.Set (S.Set a) -> [[a]]
 flatten = (map S.toList) . S.toList
-
-itlist :: Foldable t => (a -> b -> b) -> t a -> b -> b
-itlist f l b = foldr f b l
-
-end_itlist :: Foldable t => (a -> a -> a) -> t a -> a
-end_itlist f l = foldr1 f l
