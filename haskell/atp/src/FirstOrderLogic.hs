@@ -3,7 +3,7 @@ module FirstOrderLogic where
 
 import Prelude hiding (negate,sum,pred)
 import qualified Data.Set as S
-import Data.List (intercalate,minimumBy,maximumBy,find,partition,delete)
+import Data.List (delete)
 import Data.Maybe
 import qualified Data.Map as M
 import Debug.Trace
@@ -23,60 +23,63 @@ puremeson fm = deepen (\n -> mexpand rules [] FF return (M.empty,n,0) >> return 
   cls = simpcnf (specialize (pnf fm))
   rules = foldr ((++) . contrapositives) [] (flatten cls)
 
+mexpand :: [PrologRule]
+        -> [Formula FOL]
+        -> Formula FOL
+        -> ((M.Map String Term, Int, Int) -> Failing a)
+        -> (M.Map String Term, Int, Int)
+        -> Failing a
 mexpand rules ancestors g cont (env,n,k)
   | n < 0 = failure "Too deep"
   | otherwise = tryM (tryfind firstCheck ancestors) (tryfind secondCheck rules)
    where
      firstCheck a = do
-       ul <- unify_literals env (g,negate a)
-       c <- cont (ul,n,k)
-       return c
+       ul <- unifyLiterals env (g,negate a)
+       cont (ul,n,k)
      secondCheck rule = do
-       let (Prolog asm c,k') = renamerule k rule
-       ul <- unify_literals env (g,c)
-       b <- foldr (mexpand rules (g:ancestors)) cont asm (ul,n-(length asm),k')
-       return b
+       let (Prolog asm c, k') = renamerule k rule
+       ul <- unifyLiterals env (g,c)
+       foldr (mexpand rules (g:ancestors)) cont asm (ul, n - length asm, k')
+
 
 contrapositives :: [Formula FOL] -> [PrologRule]
 contrapositives cls =
-  let base = map (\c -> (Prolog (map negate (delete c cls)) c)) cls in
-  if all negative cls then (Prolog (map negate cls) FF) : base else base
+  let base = map (\c -> Prolog (map negate (delete c cls)) c) cls in
+  if all negative cls then Prolog (map negate cls) FF : base else base
 
-renamerule
-  :: Int
-     -> PrologRule
-     -> (PrologRule, Int)
+renamerule :: Int
+           -> PrologRule
+           -> (PrologRule, Int)
 renamerule k (Prolog asm c) = (Prolog (map inst asm) (inst c),k+n)
  where
   fvs = fv (list_conj (c:asm))
   n = length fvs
-  vvs = map (\i -> "_" ++ (show i)) [k .. (k+n-1)]
+  vvs = map (\i -> "_" ++ show i) [k .. (k+n-1)]
   inst = subst (fpf (S.toList fvs) (map Var vvs))
 
 deepen :: (Num a, Show a) => (a -> Failing r) -> a -> r
-deepen f n = trace ("Searching with depth limit " ++ (show n))
+deepen f n = trace ("Searching with depth limit " ++ show n)
    (try (f n) (deepen f (n + 1)))
 
-unify_literals
+unifyLiterals
   :: M.Map String Term
      -> (Formula FOL, Formula FOL) -> Failing (M.Map String Term)
-unify_literals env (Atom (R p1 a1),Atom (R p2 a2)) = unify env [(Fn p1 a1,Fn p2 a2)]
-unify_literals env (Not p,Not q) = unify_literals env (p,q)
-unify_literals env (FF,FF) = return env
-unify_literals env _ = failure "Can't unify literals"
+unifyLiterals env (Atom (R p1 a1),Atom (R p2 a2)) = unify env [(Fn p1 a1,Fn p2 a2)]
+unifyLiterals env (Not p,Not q) = unifyLiterals env (p,q)
+unifyLiterals env (FF,FF) = return env
+unifyLiterals _ _ = failure "Can't unify literals"
 
 unify :: M.Map String Term -> [(Term, Term)] -> Failing (M.Map String Term)
 unify env [] = return env
 unify env ((Fn f fargs,Fn g gargs) : oth) =
    if f == g && length fargs == length gargs
-   then unify env ((zip fargs gargs) ++ oth)
+   then unify env (zip fargs gargs ++ oth)
    else failure "impossible unification"
 unify env ((Var x,t) : oth) =
    if M.member x env then unify env ((env M.! x,t) : oth)
    else do
      z <- istriv env x t
-     w <- unify (if z then env else M.insert x t env) oth
-     return w
+     unify (if z then env else M.insert x t env) oth
 unify env ((t,Var x) : oth) = unify env ((Var x,t) : oth)
 
 istriv :: M.Map String Term -> String -> Term -> Failing Bool
@@ -84,9 +87,9 @@ istriv env x (Var y)
  | y == x = return True
  | M.member y env = istriv env x (env M.! y)
  | otherwise = return False
-istriv env x (Fn f args) = do
-   a <- sequence (map (istriv env x) args)
-   if (or a) then failure "cyclic" else return False
+istriv env x (Fn _ args) = do
+   a <- mapM (istriv env x) args
+   if or a then failure "cyclic" else return False
 
 fpf :: Ord k => [k] -> [a] -> M.Map k a
 fpf xs ys = M.fromList $ zip xs ys
@@ -111,13 +114,17 @@ skolem fm@(Exists y p) fns = skolem (subst (M.singleton y fx) p) (S.insert f fns
   xs = fv fm
   f = variant (if S.null xs then "c_"++y else "f_"++y) fns
   fx = Fn f (map Var (S.toList xs))
-skolem fm@(Forall x p) fns = (Forall x p',fns')
+skolem (Forall x p) fns = (Forall x p',fns')
  where
   (p',fns') = skolem p fns
-skolem fm@(And p q) fns = skolem2 (uncurry And) (p,q) fns
-skolem fm@(Or p q) fns = skolem2 (uncurry Or) (p,q) fns
+skolem (And p q) fns = skolem2 (uncurry And) (p,q) fns
+skolem (Or p q) fns = skolem2 (uncurry Or) (p,q) fns
 skolem fm fns = (fm,fns)
 
+skolem2 :: ((Formula FOL, Formula FOL) -> t)
+        -> (Formula FOL, Formula FOL)
+        -> S.Set String
+        -> (t, S.Set String)
 skolem2 cons (p,q) fns = (cons (p',q'),fns'')
  where
   (p',fns') = skolem p fns
@@ -221,7 +228,7 @@ generalize fm = foldr Forall fm (fv fm)
 fv :: Formula FOL -> S.Set String
 fv FF = S.empty
 fv TT = S.empty
-fv (Atom (R p args)) = S.unions (map fvt args)
+fv (Atom (R _ args)) = S.unions (map fvt args)
 fv (Not p) = fv p
 fv (And p q) = S.union (fv p) (fv q)
 fv (Or p q) = S.union (fv p) (fv q)

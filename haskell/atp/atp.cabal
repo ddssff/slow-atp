@@ -1,0 +1,39 @@
+name:                atp
+version:             0.1.0.0
+synopsis:            Initial project template from stack
+description:         Please see README.md
+homepage:            http://github.com/githubuser/atp#readme
+license:             BSD3
+license-file:        LICENSE
+author:              John Harrison
+maintainer:          David Fox
+copyright:           ???
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Equality
+                       Failing
+                       FirstOrderLogic
+                       PropositionalLogic
+                       Types
+  build-depends:       base >= 4.7 && < 5
+                     , containers
+                     , pretty
+  default-language:    Haskell2010
+
+executable atp
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , atp
+                     , containers
+                     , time
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/atp
