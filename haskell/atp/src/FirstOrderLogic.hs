@@ -89,7 +89,7 @@ istriv env x (Var y)
  | M.member y env = istriv env x (env M.! y)
  | otherwise = return False
 istriv env x (Fn f args) = do
-   a <- sequence (map (istriv env x) args)
+   a <- mapM (istriv env x) args
    if (or a) then failure "cyclic" else return False
 
 fpf :: Ord k => [k] -> [a] -> M.Map k a
