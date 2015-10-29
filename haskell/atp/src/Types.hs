@@ -8,6 +8,7 @@ import Data.Char
 import qualified Data.Set as S
 import qualified Data.Map as M
 import Data.Sequence
+import Data.String
 import Failing
 import Control.Monad (foldM)
 
@@ -23,18 +24,33 @@ data Formula a = FF
                | Or  !(Formula a) !(Formula a)
                | Imp !(Formula a) !(Formula a)
                | Iff !(Formula a) !(Formula a)
-               | Forall String !(Formula a)
-               | Exists String !(Formula a)
+               | Forall V !(Formula a)
+               | Exists V !(Formula a)
                deriving (Eq, Ord)
 
 data Term =
-    Var String
-  | Fn String (Seq Term)
+    Var V
+  | Fn F (Seq Term)
   deriving (Eq, Ord)
 
 data FOL =
-  R String (Seq Term)
+  R P (Seq Term)
   deriving (Eq, Ord)
+
+newtype V = V String deriving (Eq, Ord)
+
+instance IsString V where
+    fromString = V
+
+newtype F = F String deriving (Eq, Ord)
+
+instance IsString F where
+    fromString = F
+
+newtype P = P String deriving (Eq, Ord)
+
+instance IsString P where
+    fromString = P
 
 tryfind :: (t -> Failing b) -> Seq t -> Failing b
 tryfind f s =

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Equality where
 
 import Prelude hiding (negate,sum,pred,zipWith)
@@ -15,31 +16,31 @@ import FirstOrderLogic hiding (replace)
 import Types
 import Failing
 
-mk_eq s t = Atom (R "=" [s,t])
+mk_eq s t = Atom (R (P "=") [s,t])
 
 predicates fm = atom_union (\(R p a) -> (p,length a)) fm
 
-function_congruence :: (String, Int) -> Maybe (Formula FOL)
+function_congruence :: (F, Int) -> Maybe (Formula FOL)
 function_congruence (f,0) = Nothing
 function_congruence (f,n) = Just (foldr Forall (Imp ant con) (argnames_x >< argnames_y))
  where
-  argnames_x :: Seq String
-  argnames_x = fmap (\k -> "x" ++ (show k)) ([1..n])
-  argnames_y :: Seq String
-  argnames_y = fmap (\k -> "y" ++ (show k)) ([1..n])
+  argnames_x :: Seq V
+  argnames_x = fmap (\k -> V ("x" ++ show k)) [1..n]
+  argnames_y :: Seq V
+  argnames_y = fmap (\k -> V ("y" ++ show k)) [1..n]
   args_x = fmap Var argnames_x
   args_y = fmap Var argnames_y
   ant = foldr1 And (zipWith mk_eq args_x args_y)
   con = mk_eq (Fn f args_x) (Fn f args_y)
 
-predicate_congruence :: (String, Int) -> Maybe (Formula FOL)
+predicate_congruence :: (P, Int) -> Maybe (Formula FOL)
 predicate_congruence (p,0) = Nothing
 predicate_congruence (p,n) = Just (foldr Forall (Imp ant con) (argnames_x >< argnames_y))
  where
-  argnames_x :: Seq String
-  argnames_x = fmap (\k -> "x" ++ (show k)) [1..n]
-  argnames_y :: Seq String
-  argnames_y = fmap (\k -> "y" ++ (show k)) [1..n]
+  argnames_x :: Seq V
+  argnames_x = fmap (\k -> V ("x" ++ show k)) [1..n]
+  argnames_y :: Seq V
+  argnames_y = fmap (\k -> V ("y" ++ show k)) [1..n]
   args_x = fmap Var argnames_x
   args_y = fmap Var argnames_y
   ant = foldr1 And (zipWith mk_eq args_x args_y)

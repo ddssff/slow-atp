@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE CPP #-}
 
 import Prelude hiding (negate,sum,pred)
