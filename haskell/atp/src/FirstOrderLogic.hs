@@ -28,12 +28,12 @@ mexpand rules ancestors g cont (env,n,k)
   | otherwise = tryM (tryfind firstCheck ancestors) (tryfind secondCheck rules)
    where
      firstCheck a = do
-       ul <- unify_literals env (g,negate a)
+       ul <- unifyLiterals env (g,negate a)
        c <- cont (ul,n,k)
        return c
      secondCheck rule = do
        let (Prolog asm c,k') = renamerule k rule
-       ul <- unify_literals env (g,c)
+       ul <- unifyLiterals env (g,c)
        b <- foldr (mexpand rules (g:ancestors)) cont asm (ul,n-(length asm),k')
        return b
 
@@ -57,13 +57,13 @@ deepen :: (Num a, Show a) => (a -> Failing r) -> a -> r
 deepen f n = trace ("Searching with depth limit " ++ (show n))
    (try (f n) (deepen f (n + 1)))
 
-unify_literals
+unifyLiterals
   :: M.Map String Term
      -> (Formula FOL, Formula FOL) -> Failing (M.Map String Term)
-unify_literals env (Atom (R p1 a1),Atom (R p2 a2)) = unify env [(Fn p1 a1,Fn p2 a2)]
-unify_literals env (Not p,Not q) = unify_literals env (p,q)
-unify_literals env (FF,FF) = return env
-unify_literals env _ = failure "Can't unify literals"
+unifyLiterals env (Atom (R p1 a1),Atom (R p2 a2)) = unify env [(Fn p1 a1,Fn p2 a2)]
+unifyLiterals env (Not p,Not q) = unifyLiterals env (p,q)
+unifyLiterals env (FF,FF) = return env
+unifyLiterals env _ = failure "Can't unify literals"
 
 unify :: M.Map String Term -> [(Term, Term)] -> Failing (M.Map String Term)
 unify env [] = return env
