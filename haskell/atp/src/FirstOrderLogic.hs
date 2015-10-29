@@ -80,8 +80,7 @@ unify env ((Var x,t) : oth) =
    if M.member x env then unify env ((env M.! x,t) : oth)
    else do
      z <- istriv env x t
-     w <- unify (if z then env else M.insert x t env) oth
-     return w
+     unify (if z then env else M.insert x t env) oth
 unify env ((t,Var x) : oth) = unify env ((Var x,t) : oth)
 
 istriv :: M.Map String Term -> String -> Term -> Failing Bool
