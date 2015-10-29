@@ -122,6 +122,10 @@ skolem (And p q) fns = skolem2 (uncurry And) (p,q) fns
 skolem (Or p q) fns = skolem2 (uncurry Or) (p,q) fns
 skolem fm fns = (fm,fns)
 
+skolem2 :: ((Formula FOL, Formula FOL) -> t)
+        -> (Formula FOL, Formula FOL)
+        -> S.Set String
+        -> (t, S.Set String)
 skolem2 cons (p,q) fns = (cons (p',q'),fns'')
  where
   (p',fns') = skolem p fns
