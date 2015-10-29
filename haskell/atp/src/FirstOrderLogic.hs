@@ -3,7 +3,7 @@ module FirstOrderLogic where
 
 import Prelude hiding (negate,sum,pred)
 import qualified Data.Set as S
-import Data.List (intercalate,minimumBy,maximumBy,find,partition,delete)
+import Data.List (delete)
 import Data.Maybe
 import qualified Data.Map as M
 import Debug.Trace
@@ -229,7 +229,7 @@ generalize fm = foldr Forall fm (fv fm)
 fv :: Formula FOL -> S.Set String
 fv FF = S.empty
 fv TT = S.empty
-fv (Atom (R p args)) = S.unions (map fvt args)
+fv (Atom (R _ args)) = S.unions (map fvt args)
 fv (Not p) = fv p
 fv (And p q) = S.union (fv p) (fv q)
 fv (Or p q) = S.union (fv p) (fv q)
