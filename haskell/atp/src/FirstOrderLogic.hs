@@ -68,13 +68,13 @@ unifyLiterals
 unifyLiterals env (Atom (R p1 a1),Atom (R p2 a2)) = unify env [(Fn p1 a1,Fn p2 a2)]
 unifyLiterals env (Not p,Not q) = unifyLiterals env (p,q)
 unifyLiterals env (FF,FF) = return env
-unifyLiterals env _ = failure "Can't unify literals"
+unifyLiterals _ _ = failure "Can't unify literals"
 
 unify :: M.Map String Term -> [(Term, Term)] -> Failing (M.Map String Term)
 unify env [] = return env
 unify env ((Fn f fargs,Fn g gargs) : oth) =
    if f == g && length fargs == length gargs
-   then unify env ((zip fargs gargs) ++ oth)
+   then unify env (zip fargs gargs ++ oth)
    else failure "impossible unification"
 unify env ((Var x,t) : oth) =
    if M.member x env then unify env ((env M.! x,t) : oth)
