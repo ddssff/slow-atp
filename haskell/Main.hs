@@ -4,6 +4,7 @@ import qualified Data.Set as S
 import Data.List (intercalate,minimumBy,maximumBy,find,partition,delete)
 import Data.Maybe
 import qualified Data.Map as M
+import Data.Time.Clock
 import Debug.Trace
 
 import PropositionalLogic hiding (nnf)
@@ -12,7 +13,7 @@ import Types
 import Failing
 import Equality
 
-main = (putStrLn . show . meson . equalitize) wishnu {- ewd -}
+main = (time . putStrLn . show . meson . equalitize) wishnu {- ewd -}
 
 -- ∃x. (x=f[g[x]] ∧ ∀x'. (x'=f[g[x']] ⇒ x=x')) ⇔ ∃y. (y=g[f[y]] ∧ ∀y'. (y'=g[f[y']] ⇒ y=y'))
 wishnu :: Formula FOL
@@ -33,3 +34,11 @@ ewd = Imp (And (And (Forall "x" (Imp (Atom (R "f" [Var "x"])) (Atom (R "g" [Var 
                (Forall "x" (Forall "y" (Imp (And (Atom (R "g" [Var "x"])) (Atom (R "g" [Var "y"])))
                                             (Atom (R "=" [Var "x", Var "y"]))))))
           (Forall "y" (Imp (Atom (R "g" [Var "y"])) (Atom (R "f" [Var "y"]))))
+
+time :: IO t -> IO t
+time a = do
+  start <- getCurrentTime
+  v <- a
+  end <- getCurrentTime
+  putStrLn $ "Computation time: " ++ show (diffUTCTime end start)
+  return v
