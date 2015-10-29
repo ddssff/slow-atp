@@ -55,11 +55,11 @@ renamerule k (Prolog asm c) = (Prolog (map inst asm) (inst c),k+n)
  where
   fvs = fv (list_conj (c:asm))
   n = length fvs
-  vvs = map (\i -> "_" ++ (show i)) [k .. (k+n-1)]
+  vvs = map (\i -> "_" ++ show i) [k .. (k+n-1)]
   inst = subst (fpf (S.toList fvs) (map Var vvs))
 
 deepen :: (Num a, Show a) => (a -> Failing r) -> a -> r
-deepen f n = trace ("Searching with depth limit " ++ (show n))
+deepen f n = trace ("Searching with depth limit " ++ show n)
    (try (f n) (deepen f (n + 1)))
 
 unifyLiterals
