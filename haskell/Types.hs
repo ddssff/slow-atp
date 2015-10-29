@@ -15,13 +15,13 @@ data PrologRule = Prolog [Formula FOL] (Formula FOL)   deriving (Eq,Ord)
 data Formula a = FF
                | TT
                | Atom a
-               | Not (Formula a)
-               | And (Formula a) (Formula a)
-               | Or (Formula a) (Formula a)
-               | Imp (Formula a) (Formula a)
-               | Iff (Formula a) (Formula a)
-               | Forall String (Formula a)
-               | Exists String (Formula a)
+               | Not !(Formula a)
+               | And !(Formula a) !(Formula a)
+               | Or !(Formula a) !(Formula a)
+               | Imp !(Formula a) !(Formula a)
+               | Iff !(Formula a) !(Formula a)
+               | Forall String !(Formula a)
+               | Exists String !(Formula a)
                deriving (Eq, Ord)
 
 data Term = Var String | Fn String [Term]  deriving (Eq,Ord)
