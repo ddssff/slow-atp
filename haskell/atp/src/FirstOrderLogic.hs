@@ -23,6 +23,12 @@ puremeson fm = deepen (\n -> mexpand rules [] FF return (M.empty,n,0) >> return 
   cls = simpcnf (specialize (pnf fm))
   rules = foldr ((++) . contrapositives) [] (flatten cls)
 
+mexpand :: [PrologRule]
+        -> [Formula FOL]
+        -> Formula FOL
+        -> ((M.Map String Term, Int, Int) -> Failing a)
+        -> (M.Map String Term, Int, Int)
+        -> Failing a
 mexpand rules ancestors g cont (env,n,k)
   | n < 0 = failure "Too deep"
   | otherwise = tryM (tryfind firstCheck ancestors) (tryfind secondCheck rules)
