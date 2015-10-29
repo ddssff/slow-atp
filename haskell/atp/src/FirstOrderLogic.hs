@@ -44,8 +44,8 @@ mexpand rules ancestors g cont (env,n,k)
 
 contrapositives :: [Formula FOL] -> [PrologRule]
 contrapositives cls =
-  let base = map (\c -> (Prolog (map negate (delete c cls)) c)) cls in
-  if all negative cls then (Prolog (map negate cls) FF) : base else base
+  let base = map (\c -> Prolog (map negate (delete c cls)) c) cls in
+  if all negative cls then Prolog (map negate cls) FF : base else base
 
 renamerule
   :: Int
