@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+
 import Prelude hiding (negate,sum,pred)
 import qualified Data.Set as S
 import Data.List (intercalate,minimumBy,maximumBy,find,partition,delete)
