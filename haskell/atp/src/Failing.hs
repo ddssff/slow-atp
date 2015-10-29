@@ -7,7 +7,10 @@ import Control.Monad
 
 import GHC.Stack
 
-data Failing a = Failure String | Success a   deriving (Eq, Ord)
+data Failing a =
+    Failure String
+  | Success a
+  deriving (Eq, Ord)
 
 instance Functor Failing where
     fmap _ (Failure x) = Failure x
@@ -45,8 +48,6 @@ instance (Show a) => Show (Failing a) where
 
 failure :: (?loc :: CallStack) => String -> Failing a
 failure msg = Failure (msg ++ ": " ++ showCallStack ?loc)
-
-fromSuccess (Success a) = a
 
 isSuccess (Success _) = True
 isSuccess _ = False
