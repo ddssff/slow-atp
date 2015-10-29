@@ -47,10 +47,9 @@ contrapositives cls =
   let base = map (\c -> Prolog (map negate (delete c cls)) c) cls in
   if all negative cls then Prolog (map negate cls) FF : base else base
 
-renamerule
-  :: Int
-     -> PrologRule
-     -> (PrologRule, Int)
+renamerule :: Int
+           -> PrologRule
+           -> (PrologRule, Int)
 renamerule k (Prolog asm c) = (Prolog (map inst asm) (inst c),k+n)
  where
   fvs = fv (list_conj (c:asm))
