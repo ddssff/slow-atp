@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedLists #-}
 module PropositionalLogic where
 
 import Prelude hiding (negate,sum)
@@ -35,10 +35,11 @@ purednf (And p q) = distrib (purednf p) (purednf q)
 purednf (Or p q) = S.union (purednf p) (purednf q)
 purednf fm = S.singleton (S.singleton fm)
 
-allpairs_union s1 s2 = S.fromList [S.union x y | x <- S.toList s1, y <- S.toList s2]
+allpairs :: (Ord c) => (a -> b -> c) -> S.Set a -> S.Set b -> S.Set c
+allpairs f xs ys = S.fold (\ x zs -> S.fold (\ y zs' -> S.insert (f x y) zs') zs ys) mempty xs
 
 distrib :: Ord a => S.Set (S.Set a) -> S.Set (S.Set a) -> S.Set (S.Set a)
-distrib s1 s2 = allpairs_union s1 s2
+distrib s1 s2 = allpairs (S.union) s1 s2
 
 list_conj :: Foldable t => t (Formula a) -> Formula a
 list_conj fs
@@ -102,7 +103,7 @@ psimplify1 (Iff FF p) = Not p
 psimplify1 fm = fm
 
 atom_union :: (Ord a, Ord b) => (a -> b) -> Formula a -> S.Set b
-atom_union f fm = S.map f (S.fromList (overatoms (:) fm []))
+atom_union f fm = S.map f (overatoms (S.insert) fm mempty)
 
 onatoms :: (t -> Formula a) -> Formula t -> Formula a
 onatoms _ TT = TT

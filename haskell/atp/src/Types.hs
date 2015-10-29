@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedLists #-}
 module Types where
 
 import Text.PrettyPrint
@@ -7,11 +7,12 @@ import Data.Maybe
 import Data.Char
 import qualified Data.Set as S
 import qualified Data.Map as M
+import Data.Sequence
 import Failing
 import Control.Monad (foldM)
 
 data PrologRule =
-  Prolog [Formula FOL] (Formula FOL)
+  Prolog (S.Set (Formula FOL)) (Formula FOL)
   deriving (Eq, Ord)
 
 data Formula a = FF
@@ -28,16 +29,30 @@ data Formula a = FF
 
 data Term =
     Var String
-  | Fn String [Term]
+  | Fn String (Seq Term)
   deriving (Eq, Ord)
 
 data FOL =
-  R String [Term]
+  R String (Seq Term)
   deriving (Eq, Ord)
 
-tryfind :: (t -> Failing b) -> [t] -> Failing b
-tryfind _ [] = failure "tryfind"
-tryfind f (h:t) = tryM (f h) (tryfind f t) -- either (const (tryfind f t)) return (f h)
+tryfind :: (t -> Failing b) -> Seq t -> Failing b
+tryfind f s =
+    case viewl s of
+      EmptyL -> failure "tryfind"
+      h :< t -> tryM (f h) (tryfind f t)
 
-flatten :: S.Set (S.Set a) -> [[a]]
-flatten = map S.toList . S.toList
+settryfind :: (t -> Failing b) -> S.Set t -> Failing b
+settryfind f s =
+    case S.minView s of
+      Nothing -> failure "tryfind"
+      Just (h, t) -> tryM (f h) (settryfind f t) -- either (const (tryfind f t)) return (f h)
+
+setToSeq :: S.Set a -> Seq a
+setToSeq = foldr (<|) mempty . S.toAscList
+
+setFromSeq :: Ord a => Seq a -> S.Set a
+setFromSeq = foldr S.insert mempty
+
+setUnions :: Ord a => Seq (S.Set a) -> S.Set a
+setUnions = foldr S.union mempty

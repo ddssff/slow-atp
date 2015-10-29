@@ -1,11 +1,12 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedLists #-}
 module FirstOrderLogic where
 
-import Prelude hiding (negate,sum,pred)
+import Prelude hiding (negate,sum,pred,zip,length)
 import qualified Data.Set as S
 import Data.List (delete)
 import Data.Maybe
 import qualified Data.Map as M
+import Data.Sequence as Seq -- (Seq, viewl, zip, (<|))
 import Debug.Trace
 
 import PropositionalLogic hiding (nnf)
@@ -18,20 +19,22 @@ meson fm =
   S.map (puremeson . list_conj) (simpdnf fm1)
 
 puremeson :: Formula FOL -> Int
-puremeson fm = deepen (\n -> mexpand rules [] FF return (M.empty,n,0) >> return n) 0
+puremeson fm = deepen (\n -> mexpand rules mempty FF return (mempty,n,0) >> return n) 0
  where
+  cls :: S.Set (S.Set (Formula FOL))
   cls = simpcnf (specialize (pnf fm))
-  rules = foldr ((++) . contrapositives) [] (flatten cls)
+  rules :: S.Set PrologRule
+  rules = foldr (S.union . contrapositives) mempty cls
 
-mexpand :: [PrologRule]
-        -> [Formula FOL]
+mexpand :: S.Set PrologRule
+        -> S.Set (Formula FOL)
         -> Formula FOL
         -> ((M.Map String Term, Int, Int) -> Failing a)
         -> (M.Map String Term, Int, Int)
         -> Failing a
 mexpand rules ancestors g cont (env,n,k)
   | n < 0 = failure "Too deep"
-  | otherwise = tryM (tryfind firstCheck ancestors) (tryfind secondCheck rules)
+  | otherwise = tryM (settryfind firstCheck ancestors) (settryfind secondCheck rules)
    where
      firstCheck a = do
        ul <- unifyLiterals env (g,negate a)
@@ -39,23 +42,23 @@ mexpand rules ancestors g cont (env,n,k)
      secondCheck rule = do
        let (Prolog asm c, k') = renamerule k rule
        ul <- unifyLiterals env (g,c)
-       foldr (mexpand rules (g:ancestors)) cont asm (ul, n - length asm, k')
+       foldr (mexpand rules (S.insert g ancestors)) cont asm (ul, n - S.size asm, k')
 
-
-contrapositives :: [Formula FOL] -> [PrologRule]
+contrapositives :: S.Set (Formula FOL) -> S.Set PrologRule
 contrapositives cls =
-  let base = map (\c -> Prolog (map negate (delete c cls)) c) cls in
-  if all negative cls then Prolog (map negate cls) FF : base else base
+  let base = S.map (\c -> Prolog (S.map negate (S.delete c cls)) c) cls in
+  if all negative cls then S.insert (Prolog (S.map negate cls) FF) base else base
 
 renamerule :: Int
            -> PrologRule
            -> (PrologRule, Int)
-renamerule k (Prolog asm c) = (Prolog (map inst asm) (inst c),k+n)
+renamerule k (Prolog asm c) = (Prolog (S.map inst asm) (inst c),k+n)
  where
-  fvs = fv (list_conj (c:asm))
-  n = length fvs
-  vvs = map (\i -> "_" ++ show i) [k .. (k+n-1)]
-  inst = subst (fpf (S.toList fvs) (map Var vvs))
+  fvs = fv (list_conj (S.insert c asm))
+  n = S.size fvs
+  vvs :: Seq String
+  vvs = fmap (\i -> "_" ++ show i) [k .. (k+n-1)]
+  inst = subst (fpf (setToSeq fvs) (fmap Var vvs))
 
 deepen :: (Num a, Show a) => (a -> Failing r) -> a -> r
 deepen f n = trace ("Searching with depth limit " ++ show n)
@@ -69,18 +72,20 @@ unifyLiterals env (Not p,Not q) = unifyLiterals env (p,q)
 unifyLiterals env (FF,FF) = return env
 unifyLiterals _ _ = failure "Can't unify literals"
 
-unify :: M.Map String Term -> [(Term, Term)] -> Failing (M.Map String Term)
-unify env [] = return env
-unify env ((Fn f fargs,Fn g gargs) : oth) =
-   if f == g && length fargs == length gargs
-   then unify env (zip fargs gargs ++ oth)
-   else failure "impossible unification"
-unify env ((Var x,t) : oth) =
-   if M.member x env then unify env ((env M.! x,t) : oth)
-   else do
-     z <- istriv env x t
-     unify (if z then env else M.insert x t env) oth
-unify env ((t,Var x) : oth) = unify env ((Var x,t) : oth)
+unify :: M.Map String Term -> Seq (Term, Term) -> Failing (M.Map String Term)
+unify env pairs =
+    case viewl pairs of
+      EmptyL -> return env
+      (Fn f fargs,Fn g gargs) :< oth ->
+          if f == g && length fargs == length gargs
+          then unify env (zip fargs gargs >< oth)
+          else failure "impossible unification"
+      (Var x,t) :< oth ->
+          if M.member x env then unify env ((env M.! x,t) <| oth)
+          else do
+            z <- istriv env x t
+            unify (if z then env else M.insert x t env) oth
+      (t, Var x) :< oth -> unify env ((Var x,t) <| oth)
 
 istriv :: M.Map String Term -> String -> Term -> Failing Bool
 istriv env x (Var y)
@@ -91,8 +96,8 @@ istriv env x (Fn _ args) = do
    a <- mapM (istriv env x) args
    if or a then failure "cyclic" else return False
 
-fpf :: Ord k => [k] -> [a] -> M.Map k a
-fpf xs ys = M.fromList $ zip xs ys
+fpf :: Ord k => Seq k -> Seq a -> M.Map k a
+fpf xs ys = foldr (\(x, y) mp -> M.insert x y mp) mempty (zip xs ys)
 
 specialize :: Formula t -> Formula t
 specialize (Forall _ p) = specialize p
@@ -102,18 +107,18 @@ askolemize :: Formula FOL -> Formula FOL
 askolemize fm = fst (skolem (nnf (simplify fm)) (S.map fst (functions fm)))
 
 funcs :: Term -> S.Set (String, Int)
-funcs (Var _) = S.empty
-funcs (Fn f args) = S.insert (f,length args) (S.unions (map funcs args))
+funcs (Var _) = mempty
+funcs (Fn f args) = S.insert (f,length args) (setUnions (fmap funcs args))
 
 functions :: Formula FOL -> S.Set (String, Int)
-functions fm = S.fold S.union S.empty (atom_union (\(R _ a) -> S.unions (map funcs a)) fm)
+functions fm = S.fold S.union mempty (atom_union (\(R _ a) -> setUnions (fmap funcs a)) fm)
 
 skolem :: Formula FOL -> S.Set String -> (Formula FOL, S.Set String)
 skolem fm@(Exists y p) fns = skolem (subst (M.singleton y fx) p) (S.insert f fns)
  where
   xs = fv fm
   f = variant (if S.null xs then "c_"++y else "f_"++y) fns
-  fx = Fn f (map Var (S.toList xs))
+  fx = Fn f (fmap Var (setToSeq xs))
 skolem (Forall x p) fns = (Forall x p',fns')
  where
   (p',fns') = skolem p fns
@@ -197,7 +202,7 @@ simplify1 fm = psimplify1 fm
 subst :: M.Map String Term -> Formula FOL -> Formula FOL
 subst subfn FF = FF
 subst subfn TT = TT
-subst subfn (Atom (R p args)) = Atom (R p (map (tsubst subfn) args))
+subst subfn (Atom (R p args)) = Atom (R p (fmap (tsubst subfn) args))
 subst subfn (Not p) = Not (subst subfn p)
 subst subfn (And p q) = And (subst subfn p) (subst subfn q)
 subst subfn (Or p q) = Or (subst subfn p) (subst subfn q)
@@ -218,7 +223,7 @@ variant x vars
 
 tsubst :: M.Map String Term -> Term -> Term
 tsubst sfn tm@(Var x) = maybe tm id (M.lookup x sfn)
-tsubst sfn (Fn f args) = Fn f (map (tsubst sfn) args)
+tsubst sfn (Fn f args) = Fn f (fmap (tsubst sfn) args)
 
 generalize :: Formula FOL -> Formula FOL
 generalize fm = foldr Forall fm (fv fm)
@@ -226,9 +231,9 @@ generalize fm = foldr Forall fm (fv fm)
 -- Section 3.3
 
 fv :: Formula FOL -> S.Set String
-fv FF = S.empty
-fv TT = S.empty
-fv (Atom (R _ args)) = S.unions (map fvt args)
+fv FF = mempty
+fv TT = mempty
+fv (Atom (R _ args)) = setUnions (fmap fvt args)
 fv (Not p) = fv p
 fv (And p q) = S.union (fv p) (fv q)
 fv (Or p q) = S.union (fv p) (fv q)
@@ -239,4 +244,4 @@ fv (Exists x p) = S.delete x (fv p)
 
 fvt :: Term -> S.Set String
 fvt (Var x) = S.singleton x
-fvt (Fn f args) = S.unions (map fvt args)
+fvt (Fn f args) = setUnions (fmap fvt args)
