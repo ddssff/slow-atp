@@ -14,6 +14,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
+  ghc-options:         -O2
   exposed-modules:     Equality
                        Failing
                        FirstOrderLogic
