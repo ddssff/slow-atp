@@ -115,11 +115,11 @@ skolem fm@(Exists y p) fns = skolem (subst (M.singleton y fx) p) (S.insert f fns
   xs = fv fm
   f = variant (if S.null xs then "c_"++y else "f_"++y) fns
   fx = Fn f (map Var (S.toList xs))
-skolem fm@(Forall x p) fns = (Forall x p',fns')
+skolem (Forall x p) fns = (Forall x p',fns')
  where
   (p',fns') = skolem p fns
-skolem fm@(And p q) fns = skolem2 (uncurry And) (p,q) fns
-skolem fm@(Or p q) fns = skolem2 (uncurry Or) (p,q) fns
+skolem (And p q) fns = skolem2 (uncurry And) (p,q) fns
+skolem (Or p q) fns = skolem2 (uncurry Or) (p,q) fns
 skolem fm fns = (fm,fns)
 
 skolem2 cons (p,q) fns = (cons (p',q'),fns'')
