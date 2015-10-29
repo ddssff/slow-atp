@@ -34,7 +34,7 @@ mexpand rules ancestors g cont (env,n,k)
      secondCheck rule = do
        let (Prolog asm c,k') = renamerule k rule
        ul <- unifyLiterals env (g,c)
-       b <- foldr (mexpand rules (g:ancestors)) cont asm (ul,n-(length asm),k')
+       b <- foldr (mexpand rules (g:ancestors)) cont asm (ul, n - length asm, k')
        return b
 
 contrapositives :: [Formula FOL] -> [PrologRule]
