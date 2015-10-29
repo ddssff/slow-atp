@@ -88,9 +88,9 @@ istriv env x (Var y)
  | y == x = return True
  | M.member y env = istriv env x (env M.! y)
  | otherwise = return False
-istriv env x (Fn f args) = do
+istriv env x (Fn _ args) = do
    a <- mapM (istriv env x) args
-   if (or a) then failure "cyclic" else return False
+   if or a then failure "cyclic" else return False
 
 fpf :: Ord k => [k] -> [a] -> M.Map k a
 fpf xs ys = M.fromList $ zip xs ys
