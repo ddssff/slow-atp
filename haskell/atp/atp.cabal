@@ -14,7 +14,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  ghc-options:         -O2
+  ghc-options:         -O2 -auto-all
   exposed-modules:     Equality
                        Failing
                        FirstOrderLogic
@@ -28,7 +28,7 @@ library
 executable atp
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -O2 -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -O2 -auto-all -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , atp
                      , containers
