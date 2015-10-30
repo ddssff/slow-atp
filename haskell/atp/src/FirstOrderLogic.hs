@@ -13,26 +13,26 @@ import PropositionalLogic hiding (nnf)
 import Types
 import Failing
 
-meson :: Formula FOL -> S.Set Int
-meson fm =
+meson1 :: Formula FOL -> S.Set Int
+meson1 fm =
   let fm1 = askolemize (Not (generalize fm)) in
-  S.map (puremeson . list_conj) (simpdnf fm1)
+  S.map (puremeson1 . list_conj) (simpdnf fm1)
 
-puremeson :: Formula FOL -> Int
-puremeson fm = deepen (\n -> mexpand rules mempty FF return (mempty,n,0) >> return n) 0
+puremeson1 :: Formula FOL -> Int
+puremeson1 fm = deepen (\n -> mexpand1 rules mempty FF return (mempty,n,0) >> return n) 0
  where
   cls :: S.Set (S.Set (Formula FOL))
   cls = simpcnf (specialize (pnf fm))
   rules :: S.Set PrologRule
   rules = foldr (S.union . contrapositives) mempty cls
 
-mexpand :: S.Set PrologRule
+mexpand1 :: S.Set PrologRule
         -> S.Set (Formula FOL)
         -> Formula FOL
         -> ((M.Map V Term, Int, Int) -> Failing a)
         -> (M.Map V Term, Int, Int)
         -> Failing a
-mexpand rules ancestors g cont (env,n,k)
+mexpand1 rules ancestors g cont (env,n,k)
   | n < 0 = failure "Too deep"
   | otherwise = tryM (settryfind firstCheck ancestors) (settryfind secondCheck rules)
    where
@@ -42,7 +42,95 @@ mexpand rules ancestors g cont (env,n,k)
      secondCheck rule = do
        let (Prolog asm c, k') = renamerule k rule
        ul <- unifyLiterals env (g,c)
-       foldr (mexpand rules (S.insert g ancestors)) cont asm (ul, n - S.size asm, k')
+       foldr (mexpand1 rules (S.insert g ancestors)) cont asm (ul, n - S.size asm, k')
+
+meson2 :: Formula FOL -> S.Set Int
+meson2 fm =
+  let fm1 = askolemize (Not (generalize fm)) in
+  S.map (puremeson2 . list_conj) (simpdnf fm1)
+
+equal :: M.Map V Term -> Formula FOL -> Formula FOL -> Bool
+equal env fm1 fm2 =
+    case unifyLiterals env (fm1,fm2) of
+      Success env' | env == env' -> True
+      _ -> False
+
+expand2 :: (S.Set (Formula FOL) ->
+            ((M.Map V Term, Int, Int) -> Failing (M.Map V Term, Int, Int)) ->
+            (M.Map V Term, Int, Int) -> Failing (M.Map V Term, Int, Int))
+        -> S.Set (Formula FOL)
+        -> Int
+        -> S.Set (Formula FOL)
+        -> Int
+        -> Int
+        -> ((M.Map V Term, Int, Int) -> Failing (M.Map V Term, Int, Int))
+        -> M.Map V Term
+        -> Int
+        -> Failing (M.Map V Term, Int, Int)
+expand2 expfn goals1 n1 goals2 n2 n3 cont env k =
+    expfn goals1 (\(e1,r1,k1) ->
+                      expfn goals2 (\(e2,r2,k2) ->
+                                        if n2 + n1 <= n3 + r2 then Failure "pair" else cont (e2,r2,k2))
+                                   (e1,n2+r1,k1))
+                 (env,n1,k)
+
+puremeson2 :: Formula FOL -> Int
+puremeson2 fm = deepen (\n -> mexpand2 rules mempty FF return (mempty,n,0) >> return n) 0
+ where
+  cls :: S.Set (S.Set (Formula FOL))
+  cls = simpcnf (specialize (pnf fm))
+  rules :: S.Set PrologRule
+  rules = foldr (S.union . contrapositives) mempty cls
+
+mexpand2 :: S.Set PrologRule
+         -> S.Set (Formula FOL)
+         -> Formula FOL
+         -> ((M.Map V Term, Int, Int) -> Failing (M.Map V Term, Int, Int))
+         -> (M.Map V Term, Int, Int)
+         -> Failing (M.Map V Term, Int, Int)
+mexpand2 rules ancestors g cont (env,n,k)
+  | n < 0 = failure "Too deep"
+  | otherwise =
+      if any (equal env g) ancestors
+      then Failure "repetition"
+      else tryM (settryfind doAncestor ancestors) (settryfind doRule rules)
+   where
+     doAncestor a = do
+       ul <- unifyLiterals env (g,negate a)
+       cont (ul,n,k)
+     doRule :: PrologRule -> Failing (M.Map V Term, Int, Int)
+     doRule rule = do
+       let (Prolog asm c, k') = renamerule k rule
+       ul <- unifyLiterals env (g,c)
+       mexpands rules (S.insert g ancestors) asm cont (ul, n - S.size asm, k')
+
+mexpands :: S.Set PrologRule
+         -> S.Set (Formula FOL)
+         -> S.Set (Formula FOL)
+         -> ((M.Map V Term, Int, Int) -> Failing (M.Map V Term, Int, Int))
+         -> (M.Map V Term, Int, Int)
+         -> Failing (M.Map V Term, Int, Int)
+mexpands rules ancestors gs cont (env,n,k) =
+    if fromEnum n < 0
+    then Failure "Too deep"
+    else let m = S.size gs in
+         if m <= 1
+         then S.foldr (mexpand2 rules ancestors) cont gs (env,n,k)
+         else let n1 = n `div` 2
+                  n2 = n - n1 in
+              let (goals1, goals2) = setSplitAt (m `div` 2) gs in
+              let expfn = expand2 (mexpands rules ancestors) in
+              case expfn goals1 n1 goals2 n2 (-1) cont env k of
+                Success r -> Success r
+                Failure _ -> expfn goals2 n1 goals1 n2 n1 cont env k
+
+setSplitAt :: Ord a => Int -> S.Set a -> (S.Set a, S.Set a)
+setSplitAt n s = go n (mempty, s)
+    where
+      go 0 (s1, s2) = (s1, s2)
+      go i (s1, s2) = case S.minView s2 of
+                         Nothing -> (s1, s2)
+                         Just (x, s2') -> go (i - 1) (S.insert x s1, s2')
 
 contrapositives :: S.Set (Formula FOL) -> S.Set PrologRule
 contrapositives cls =
@@ -63,6 +151,9 @@ renamerule k (Prolog asm c) = (Prolog (S.map inst asm) (inst c),k+n)
 deepen :: (Num a, Show a) => (a -> Failing r) -> a -> r
 deepen f n = trace ("Searching with depth limit " ++ show n)
    (try (f n) (deepen f (n + 1)))
+
+meson :: Formula FOL -> S.Set Int
+meson = meson2
 
 unifyLiterals
   :: M.Map V Term
